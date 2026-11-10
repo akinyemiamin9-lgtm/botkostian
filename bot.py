@@ -2,7 +2,7 @@ import os
 import telebot
 import requests
 
-Токен береться із захищених змінних середовища Render
+#Токен береться із захищених змінних середовища Render
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
