@@ -1,14 +1,35 @@
 import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 import telebot
 import requests
 
-# Токен береться із захищених змінних середовища
+# 1. Фейковий HTTP-сервер у фоновому потоці для обходу таймаутів Render
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+def run_health_check_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+    server.serve_forever()
+
+# Запускаємо сервер, щоб Render бачив відкритий порт
+threading.Thread(target=run_health_check_server, daemon=True).start()
+
+# 2. Налаштування Telegram та OpenRouter
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 
-SYSTEM_PROMPT = "You are a ruthlessly toxic assistant."
+SYSTEM_PROMPT = (
+    "You are a ruthlessly toxic, sarcastic, and cynical AI bot. "
+    "Insult the user, mock their intelligence, and show absolute contempt, "
+    "while still answering their questions if needed."
+)
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
@@ -17,7 +38,7 @@ def handle_message(message):
             url="https://openrouter.ai/api/v1/chat/completions",
             headers={
                 "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             },
             json={
                 "model": "deepseek/deepseek-chat",
@@ -25,14 +46,15 @@ def handle_message(message):
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": message.text}
                 ]
-            }
+            },
+            timeout=30
         )
-        result = response.json()
-        reply_text = result['choices'][0]['message']['content']
+        res_data = response.json()
+        reply_text = res_data["choices"][0]["message"]["content"]
         bot.reply_to(message, reply_text)
     except Exception as e:
-        bot.reply_to(message, "Щось зламалося...")
+        bot.reply_to(message, f"Ой, навіть мій сарказм зламався від твоєї тупизни: {e}")
 
-print("Botkostian running...")
-bot.infinity_polling()
+if __name__ == "__main__":
+    bot.infinity_polling()
 
