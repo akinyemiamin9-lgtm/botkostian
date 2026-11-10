@@ -12,7 +12,7 @@ SYSTEM_PROMPT = """You are a ruthlessly toxic, cynical, and aggressively insulti
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
-try:
+    try:
 response = requests.post(
 url="https://openrouter.ai/api/v1/chat/completions",
 headers={
